@@ -1,0 +1,627 @@
+---
+title: "CVD"
+output: html_document
+date: "2023-06-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load data and change some variables
+
+```{r}
+data1 <- read.csv('cardio_train.csv',sep = ';',header = TRUE)
+data1 <- data1[,-1]
+# clean data
+data1 <- data1[data1$ap_hi >= data1$ap_lo, ]
+# discard weights less than 30 kg
+data1 <- data1[data1$weight >= 30, ]
+# discard heights < 120cm and > 210cm
+data1 <- data1[data1$height >= 120 & data1$height<=210, ]
+# define a new binary variable to measure whethere the individual's blood pressure is high
+data1$high_bp <- 0
+data1$high_bp[data1$ap_lo >= 80 | data1$ap_hi >= 130] <- 1
+# create a new variable BMI
+data1$bmi <- data1$weight/((data1$height*0.01)^2)
+data1$age <- round(data1$age/365,1)
+# delete some columns
+data1 <- data1[, -which(names(data1) == "height")]
+data1 <- data1[, -which(names(data1) == "weight")]
+```
+
+## Exploratory data analysis
+
+```{r}
+#Presense of Cardio disease
+library(ggplot2)
+
+df <- data.frame(has_cardio = c("cardio", "nocardio"), count = c(sum(data1$cardio == 1), sum(data1$cardio == 0)))
+df$proportion <- df$count / sum(df$count)
+ggplot(data = df, aes(x = has_cardio, y = count, fill = has_cardio)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = scales::percent(proportion), y = count),
+            vjust = -0.5, color = "black", size = 4)+
+  labs(title = "Proportion of People with Cardiovascular Disease")+scale_fill_manual(values = c("#4C6EFF", "#FAC858"))
+
+
+
+
+```
+
+```{r}
+# glucose and cardio
+library(ggplot2)
+
+# 创建数据框
+df <- data.frame(glucose = c("normal", "above normal", "well above normal"),
+                 cardio_yes = c(sum(data1$cardio == 1 & data1$gluc==1), sum(data1$cardio == 1  & data1$gluc==2), sum(data1$cardio == 1  & data1$gluc==3)),
+                 cardio_no = c(sum(data1$cardio == 0 & data1$gluc==1), sum(data1$cardio == 0 & data1$gluc==2), sum(data1$cardio == 0 & data1$gluc==3)))
+
+# 融合数据
+df_melt <- reshape2::melt(df, id.vars = "glucose", variable.name = "cardio_status", value.name = "count")
+
+# 使用ggplot绘制条形图
+ggplot(data = df_melt, aes(x = glucose, y = count, fill = cardio_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "glucose", y = "count") +
+  scale_fill_manual(values = c("#4C6EFF", "#FAC858"), labels = c("cardio", "no cardio"))
+
+```
+
+```{r}
+# cholesterol and cardio
+# 创建数据框
+df <- data.frame(cholesterol = c("normal", "above normal", "well above normal"),
+                 cardio_yes = c(sum(data1$cardio == 1 & data1$cholesterol==1), sum(data1$cardio == 1  & data1$cholesterol==2), sum(data1$cardio == 1  & data1$cholesterol==3)),
+                 cardio_no = c(sum(data1$cardio == 0 & data1$cholesterol==1), sum(data1$cardio == 0 & data1$cholesterol==2), sum(data1$cardio == 0 & data1$cholesterol==3)))
+
+# 融合数据
+df_melt <- reshape2::melt(df, id.vars = "cholesterol", variable.name = "cardio_status", value.name = "count")
+
+# 使用ggplot绘制条形图
+ggplot(data = df_melt, aes(x = cholesterol, y = count, fill = cardio_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "cholesterol", y = "count") +
+  scale_fill_manual(values = c("#4C6EFF", "#FAC858"), labels = c("cardio", "no cardio"))
+
+```
+
+```{r}
+# blood pressure and cardio
+# 创建数据框
+df <- data.frame(bloodpressure = c("normal", "above normal"),
+                 cardio_yes = c(sum(data1$cardio == 1 & data1$high_bp==0), sum(data1$cardio == 1  & data1$high_bp==1)),
+                 cardio_no = c(sum(data1$cardio == 0 & data1$high_bp==0), sum(data1$cardio == 0 & data1$high_bp==1)))
+
+# 融合数据
+df_melt <- reshape2::melt(df, id.vars = "bloodpressure", variable.name = "cardio_status", value.name = "count")
+
+# 使用ggplot绘制条形图
+ggplot(data = df_melt, aes(x = bloodpressure, y = count, fill = cardio_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "bloodpressure", y = "count") +
+  scale_fill_manual(values = c("#4C6EFF", "#FAC858"), labels = c("cardio", "no cardio"))
+
+```
+
+```{r}
+data1$bmi_class <- 1
+data1$bmi_class[data1$bmi <18.5] <- 2
+data1$bmi_class[data1$bmi>24.9] <- 3
+# bmi and cardio
+# 创建数据框
+df <- data.frame(bmi = c("under normal","normal","above normal"),
+                 cardio_yes = c(sum(data1$cardio == 1 & data1$bmi_class==2), sum(data1$cardio == 1  & data1$bmi_class==1), sum(data1$cardio == 1  & data1$bmi_class==3)),
+                 cardio_no = c(sum(data1$cardio == 0 & data1$bmi_class==2), sum(data1$cardio == 0 & data1$bmi_class==1), sum(data1$cardio == 0 & data1$bmi_class==3)))
+
+# 融合数据
+df_melt <- reshape2::melt(df, id.vars = "bmi", variable.name = "cardio_status", value.name = "count")
+
+# 使用ggplot绘制条形图
+ggplot(data = df_melt, aes(x = bmi, y = count, fill = cardio_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "bmi", y = "count") +
+  scale_fill_manual(values = c("#4C6EFF", "#FAC858"), labels = c("cardio", "no cardio"))
+
+```
+
+```{r}
+# alcohol and cardio
+# 创建数据框
+df <- data.frame(alcohol = c("alcohol", "no alcohol"),
+                 cardio_yes = c(sum(data1$cardio == 1 & data1$alco==1), sum(data1$cardio == 1  & data1$alco==0)),
+                 cardio_no = c(sum(data1$cardio == 0 & data1$alco==1), sum(data1$cardio == 0 & data1$alco==0)))
+
+# 融合数据
+df_melt <- reshape2::melt(df, id.vars = "alcohol", variable.name = "cardio_status", value.name = "count")
+
+# 使用ggplot绘制条形图
+ggplot(data = df_melt, aes(x = alcohol, y = count, fill = cardio_status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "alcohol", y = "count") +
+  scale_fill_manual(values = c("#4C6EFF", "#FAC858"), labels = c("cardio", "no cardio"))
+
+```
+
+```{r}
+# association
+#gender and smoke
+t1=table(data1$gender,data1$smoke)
+chisq.test(t1)
+# smoke and alcohol
+t2=table(data1$smoke,data1$alco)
+chisq.test(t2)
+
+
+```
+
+```{python}
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt # plotting
+import numpy as np # linear algebra
+import os # accessing directory structure
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+def plotCorrelationMatrix(df, graphWidth):
+    #filename = df.dataframeName
+    df = df.dropna('columns') # drop columns with NaN
+    df = df[[col for col in df if df[col].nunique() > 1]] # keep columns where there are more than 1 unique values
+    if df.shape[1] < 2:
+        print(f'No correlation plots shown: The number of non-NaN or constant columns ({df.shape[1]}) is less than 2')
+        return
+    corr = df.corr()
+    plt.figure(num=None, figsize=(graphWidth, graphWidth), dpi=80, facecolor='w', edgecolor='k')
+    corrMat = plt.matshow(corr, fignum = 1)
+    plt.xticks(range(len(corr.columns)), corr.columns, rotation=90)
+    plt.yticks(range(len(corr.columns)), corr.columns)
+    plt.gca().xaxis.tick_bottom()
+    plt.colorbar(corrMat)
+    #plt.title(f'Correlation Matrix for {filename}', fontsize=15)
+    plt.show()
+data_cardio = pd.read_csv('data_cardio.csv')
+#data_cardio.dataframeName = 'cardio_train.csv'
+plotCorrelationMatrix(data_cardio, 8)
+
+```
+
+
+```{r}
+# logistic regression
+library(splitTools)
+library(ranger)
+inds <- partition(data1$cardio, p = c(train = 0.75, test = 0.25))
+str(inds)
+train <- data1[inds$train, ]
+test <- data1[inds$test, ]
+library(corrplot)
+datacorr<-cor(train[,c(1,2,3,4,5,6,7,8,9,10,11,12)])
+corrplot(datacorr)
+
+
+```
+
+```{r}
+#model
+#feature selection
+model<-glm(cardio~age+gender+high_bp+cholesterol+gluc+smoke+alco+active+bmi+ (cholesterol*gluc)+(smoke*gender)+(high_bp*ap_lo),data=train,family="binomial")
+step(model,direction="backward")
+
+```
+
+```{r}
+#create model
+logit1<-glm(formula = cardio ~ age + gender + high_bp + cholesterol + 
+    gluc + smoke + alco + active + bmi + ap_lo + (cholesterol*gluc) + 
+    (high_bp*ap_lo), family = "binomial", data = train)
+#with cross validation : 
+#caret package: classification and regression training 
+
+library(caret)
+train$cardio<-as.factor(train$cardio)
+tc<-trainControl(method="repeatedcv",number=10,repeats=10)
+fit<-train(cardio ~ ., data = train, method ="glm",family=binomial(),trControl = tc,)
+fit
+summary(fit)
+stargazer(fit,type='text',no.space = TRUE,single.row = TRUE)
+
+```
+
+```{r}
+library(tidyverse) 
+logit1<-glm(formula = cardio ~ age + gender + high_bp + cholesterol + 
+    gluc + smoke + alco + active + bmi + ap_lo + (cholesterol*gluc) + 
+    (high_bp*ap_lo), family = "binomial", data = train)
+train["cholesterol:gluc"]<-train["cholesterol"]*train["gluc"]
+train["high_bp:ap_lo"]<-train["high_bp"]*train["ap_lo"]
+train<-select(train,-c(3,13))
+
+head(train)
+
+```
+
+```{r}
+tc<-trainControl(method="repeatedcv",number=10,repeats=10)
+fit1<-train(cardio ~ ., data = train, 
+                 method ="glm",
+                 family=binomial(),
+                 trControl = tc,
+                
+                 )
+fit1
+
+
+```
+
+```{r}
+summary(fit1)
+```
+
+```{r}
+logi2<-glm(formula = cardio ~ age + gender + high_bp + cholesterol + 
+    gluc + smoke + alco + active + bmi + (cholesterol*gluc) + 
+    (high_bp*ap_lo), family = "binomial", data = train)
+head(train)
+
+```
+
+```{r}
+train<-select(train,-c(3))
+tc<-trainControl(method="repeatedcv",number=10,repeats=10)
+fit3<-train(cardio ~ ., data = train, 
+                 method ="glm",
+                 family=binomial(),
+                 trControl = tc,
+                
+                 )
+fit3
+summary(fit3)
+
+```
+
+```{r}
+test$cardio<-as.factor(test$cardio)
+library(Metrics)
+test$prob <- predict(fit, test)
+table(test$prob, test$cardio)
+accuracy(test$prob, test$cardio)
+```
+
+```{r}
+test["cholesterol:gluc"]<-test["cholesterol"]*test["gluc"]
+test["high_bp:ap_lo"]<-test["high_bp"]*test["ap_lo"]
+test<-select(test,-c(3,13))
+test$cardio<-as.factor(test$cardio)
+head(test)
+
+```
+
+```{r}
+library(Metrics)
+test$prob <- predict(fit1, test)
+table(test$prob, test$cardio)
+accuracy(test$prob, test$cardio)
+
+```
+
+```{r}
+library(Metrics)
+test$prob <- predict(fit3, test)
+table(test$prob, test$cardio)
+accuracy(test$prob, test$cardio)
+
+```
+
+# 有向无环图
+
+```{r}
+
+library(dagitty)
+library(ggdag)
+dag <- dagitty:: dagitty("dag{
+                         Z -> A -> Y; A <- U -> Y;
+                         {C1 C2 C3} -> Y;{C1 C2}->A;
+                         C3 -> {M1 M2}
+                         {M1 M2}->Y;A->{M1 M2};
+                         M1->M2;
+                         
+                         
+                  }") 
+dag_tidy <- ggdag::tidy_dagitty(dag, seed = 5) %>%
+  dag_label(labels = c("A" = "Smoking", "M1" = "BMI",
+                       "M2" = "Glucose",
+                       "C1" = "Age","C2" = "Gender",
+                       "Y" = "Cardio", "U" = "Unobserved Confounder",  
+                       "Z" = "Alcohol",
+                       "C3" = "Active"))
+ggdag(dag_tidy, node_size = 20, text_size = 5, label_size = 4,
+      edge_type = "link") +
+  geom_dag_label_repel(aes(label = label)) +
+  geom_dag_edges(edge_width = 1) +
+  theme_dag_blank() +
+  expand_plot(expand_x = expansion(c(0.1, 0.1)),
+              expand_y = expansion(c(0.1, 0.1)))
+```
+
+```{r}
+library(stargazer)
+
+l1 <- glm(cardio~smoke,data=data1)
+summary(l1)
+
+l2 <- glm(cardio~smoke+age+gender+active,data = data1)
+summary(l2)
+
+l3 <- glm(cardio~smoke+age+gender+active+alco,data = data1)
+summary(l3)
+
+stargazer(l1,l2,l3,type='latex',no.space = TRUE,single.row = TRUE)
+
+#choose model2
+
+```
+
+```{r}
+# sensitivity analysis
+# Y:cardio
+# A:smoke
+# U:unobserved confounders
+# ref:https://livefreeordichotomize.com/posts/2022-09-07-tipr-an-r-package-for-sensitivity-to-unmeasured-confounding/index.htmll
+
+# 假设cardio是结果变量，smoke是处理变量，age和gender和active是已观测到的控制变量
+# U是未知的潜在混淆变量
+library(tipr)
+library(tidyverse)
+mod <- glm(
+  cardio ~ smoke +  age + gender + active,
+  data = data1,
+  family = poisson)
+
+## calculate the risk ratio by exponentiating 
+## the coefficient
+coef(mod) %>%
+  exp()
+
+lmtest::coefci(mod, vcov = sandwich::vcovHC) %>% 
+  exp()
+
+tip_with_continuous(
+  effect_observed = 0.967,
+  exposure_confounder_effect = 0.5
+)
+
+
+tip_df <- tip_with_continuous(
+  effect_observed = 0.967,
+  exposure_confounder_effect = seq(0.1, 1, by = 0.1),
+  verbose = FALSE
+)
+
+library(ggplot2)
+
+ggplot(tip_df,
+       aes(x = exposure_confounder_effect, 
+           y = confounder_outcome_effect)) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x = "Exposure - unmeasured confounder effect",
+       y = "Unmeasured confounder - outcome effect")
+```
+
+```{r}
+
+library(tipr)
+library(tidyverse)
+
+sens_results <- adjust_or_with_continuous(
+    effect_observed = 0.967,
+    exposure_confounder_effect = rep(-seq(0.5, by = 0.5, length.out = 5), times = 5),
+    confounder_outcome_effect = rep(seq(0.2, 0.9, length.out = 5), each = 5),
+    verbose = FALSE,
+    or_correction = TRUE
+)
+
+# The parameter combinations in the above analysis
+data.frame(
+    exposure_confounder_effect = rep(-seq(0.5, by = 0.5, length.out = 5), times = 5),
+    confounder_outcome_effect = rep(seq(0.2, 0.9, length.out = 5), each = 5)
+)
+
+ggplot(sens_results,aes(x = confounder_outcome_effect, y = rr_adjusted, color = factor(exposure_confounder_effect))) +
+    geom_hline(yintercept = sens_results$rr_observed[1], lty = 2) +
+    geom_hline(yintercept = 1, lwd = 2, color = "red") +
+    geom_point() +
+    geom_line() +
+    labs(x = "Unmeasured confounder - outcome effect (OR)", y = "Adjusted OR") +
+    guides(color = guide_legend(title = "Treatment-confounder relationship\n(mean difference)"))
+
+```
+
+# stratification
+
+```{r}
+# estimate propensity score
+glm1 <- glm(smoke~age+I(age^2)+gender+active,family = binomial,data=data1)
+stargazer(glm1,type = 'latex')
+
+
+```
+
+```{r}
+# calculate propensity score
+data_pro_score <- data.frame(pro_score=predict(glm1,type='response'),treatment=glm1$model$smoke)
+# visualize to see the overlap
+hist(data_pro_score$pro_score[data_pro_score$treatment==0],main="Propensity scores", xlab = "Propensity score(gray=treated,white=control)",col="white")
+hist(data_pro_score$pro_score[data_pro_score$treatment==1],main="Propensity scores", add=TRUE, col="gray")
+
+ggplot(data_pro_score, aes(x = pro_score, fill = factor(treatment))) +
+  geom_density(alpha = 0.5) +
+  labs(x = "Propensity Score", y = "Density") +
+  scale_fill_discrete(name = "Group") +
+  theme_minimal()
+```
+
+```{r}
+# stratification
+data1$ps <- data_pro_score$pro_score
+data1$stratum <- cut(data1$ps, breaks = c(0, 0.016, 0.019, 0.0215, 0.235, 0.25),labels = c("1", "2", "3", "4", "5"))
+# 计算每个分层中处理组和对照组的比例
+# layer1
+layer1_data <- subset(data1,stratum==1)
+layer1_smoke <- subset(layer1_data,smoke==1)
+layer1_smoke_cardio <- subset(layer1_smoke,cardio==1)
+layer1_nosmoke <- subset(layer1_data,smoke==0)
+layer1_nosmoke_cardio <- subset(layer1_nosmoke,cardio==1)
+layer1_ATE <- (nrow(layer1_smoke_cardio)/nrow(layer1_smoke))-(nrow(layer1_nosmoke_cardio)/nrow(layer1_nosmoke))
+# layer2
+layer2_data <- subset(data1,stratum==2)
+layer2_smoke <- subset(layer2_data,smoke==1)
+layer2_smoke_cardio <- subset(layer2_smoke,cardio==1)
+layer2_nosmoke <- subset(layer2_data,smoke==0)
+layer2_nosmoke_cardio <- subset(layer2_nosmoke,cardio==1)
+layer2_ATE <- (nrow(layer2_smoke_cardio)/nrow(layer2_smoke))-(nrow(layer2_nosmoke_cardio)/nrow(layer2_nosmoke))
+# layer3
+layer3_data <- subset(data1,stratum==3)
+layer3_smoke <- subset(layer3_data,smoke==1)
+layer3_smoke_cardio <- subset(layer3_smoke,cardio==1)
+layer3_nosmoke <- subset(layer3_data,smoke==0)
+layer3_nosmoke_cardio <- subset(layer3_nosmoke,cardio==1)
+layer3_ATE <- (nrow(layer3_smoke_cardio)/nrow(layer3_smoke))-(nrow(layer3_nosmoke_cardio)/nrow(layer3_nosmoke))
+#layer4
+layer4_data <- subset(data1,stratum==4)
+layer4_smoke <- subset(layer4_data,smoke==1)
+layer4_smoke_cardio <- subset(layer4_smoke,cardio==1)
+layer4_nosmoke <- subset(layer4_data,smoke==0)
+layer4_nosmoke_cardio <- subset(layer4_nosmoke,cardio==1)
+layer4_ATE <- (nrow(layer4_smoke_cardio)/nrow(layer4_smoke))-(nrow(layer4_nosmoke_cardio)/nrow(layer4_nosmoke))
+
+
+#layer5
+layer5_data <- subset(data1,stratum==5)
+layer5_smoke <- subset(layer5_data,smoke==1)
+layer5_smoke_cardio <- subset(layer5_smoke,cardio==1)
+layer5_nosmoke <- subset(layer5_data,smoke==0)
+layer5_nosmoke_cardio <- subset(layer5_nosmoke,cardio==1)
+layer5_ATE <- (nrow(layer5_smoke_cardio)/nrow(layer5_smoke))-(nrow(layer5_nosmoke_cardio)/nrow(layer5_nosmoke))
+
+total_ATE = weighted.mean(x=c(layer1_ATE,layer2_ATE,layer3_ATE,layer4_ATE,layer5_ATE),w=c(nrow(layer1_data),nrow(layer2_data),nrow(layer3_data),nrow(layer4_data),nrow(layer5_data)))
+
+# 输出总的平均处理效应
+print(total_ATE)
+
+```
+
+#Matching
+
+```{r}
+# matching
+library(Matching)
+X <- glm1$fitted
+Y <- data1$cardio
+Tr <- data1$smoke
+
+# calculate the estimated average causal effect
+res <- Match(Y=Y,Tr=Tr,X=X,M=1,estimand = 'ATE',ties=FALSE,version='fast')
+r <- as.numeric(res$est)
+summary(res)
+#Estimate...  -0.014307 
+#SE.........  0.0026153 
+#T-stat.....  -5.4703 
+#p.val......  4.4921e-08 
+
+```
+
+# Matching
+
+```{r}
+# check balance
+library(cobalt)
+balance.table <- bal.tab(res,smoke~age+I(age^2)+gender+active,family = binomial,data=data1,un=TRUE)
+balance.table
+
+
+```
+
+```{r}
+love.plot(balance.table,thresholds = .1,line = TRUE,stars = 'std')
+
+```
+
+# weighting
+
+```{r}
+# weighting
+# calculate the weight
+iptw <- ifelse(data_pro_score$treatment==1,1/data_pro_score$pro_score,1/(1-data_pro_score$pro_score))
+data1$iptw <- iptw
+
+# check the balance
+data1$age_2 <- (data1$age)^2
+covariates <- subset(data1,select = c(1,2,9,17))
+balance.table2 <- bal.tab(covariates,treat=data1$smoke,s.d.denom='pooled',
+                          weights=data1$iptw,
+                          m.threshold=0.1,un=TRUE,
+                          v.threshold=2)
+balance.table2
+
+```
+
+```{r}
+love.plot(balance.table2,
+          thresholds = .1,
+          line=TRUE,
+          stars = 'std')
+
+```
+
+```{r}
+# calculate ATE using iptw
+ht.test <- function(y,a,w){
+  n <- length(y)
+  (1/n)*sum((y*a*w)-(y*(1-a)*w))
+}
+
+est <- ht.test(data1$cardio,data1$smoke,data1$iptw)
+print(est)
+
+```
+
+# Mediation
+
+```{r}
+library(lavaan)
+# 链式多重中介
+model_med <- 'bmi ~ a1*smoke
+              gluc ~ a2*smoke+d21*bmi
+              cardio~b2*gluc+b1*bmi+c1*smoke
+              
+              ie := a1*d21*b2
+              total := c1+(a1*d21*b2)+(a1*b1)+(a2*b2)
+              '
+fit_med <- sem(model_med,data = data1,se=10000)
+summary(fit_med)
+boot.fit <- parameterEstimates(fit_med,boot.ci.type = 'bca.simple')
+```
+
+# IV analysis
+
+```{python}
+import pandas as pd
+import statsmodels.api as sm
+from linearmodels import IV2SLS
+
+data_cardio = pd.read_csv('data_cardio.csv')
+#data_cardio.head()
+#Add constant:
+data_cardio['const'] = 1
+#Dependent variable = cardio
+#Endogenous variable = smoke
+#Exogenous variable = const, age, gender,gluc,bmi,active
+#Instrument = alco
+iv2sls2_8 = IV2SLS(dependent = data_cardio['cardio'],
+                   exog=data_cardio[['const', 'age', 'gender', 'gluc', 'bmi', 'active']],
+                   endog = data_cardio['smoke'],
+                   instruments= data_cardio['alco']).fit(cov_type= 'robust')
+print(iv2sls2_8.summary)
+
+```
